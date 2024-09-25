@@ -1,0 +1,20 @@
+15:12:01 Opening Table: C:\0. Support\Ruumab\Transparent GeoTIFF\Harju\1197.tab
+15:12:01 Set Map Window 3021 Layer 1  Alpha 255 Zoom (4.8, 1900) Units "m" Off
+ Display Global
+ Transparency On Color 16777215
+15:12:01 Opening Table: C:\0. Support\Ruumab\Transparent GeoTIFF\Harju\1198.tab
+15:12:01 Set Map Window 3021 Layer 1  Alpha 255 Zoom (4.8, 1900) Units "m" Off
+ Display Global
+ Transparency On Color 16777215
+08:05:06 TabHome: Insert after OpenTableButton
+08:05:06 TabTable: Insert after TableFileOpenGallerySplitButton
+08:05:06 TabMap: Insert after MapFileOpenGallerySplitButton
+08:52:50 TabHome: Add to end
+08:52:50 TabTable: Insert after TableFileOpenGallerySplitButton
+08:52:50 TabMap: Insert at Postion 1
+09:05:18 TabHome: Insert after OpenTableButton
+09:05:18 TabTable: Insert after TableFileOpenGallerySplitButton
+09:05:18 TabMap: Insert after MapFileOpenGallerySplitButton
+10:35:01 TabHome: Insert after OpenTableButton
+10:35:01 TabTable: Insert after TableFileOpenGallerySplitButton
+10:35:01 TabMap: Insert after MapFileOpenGallerySplitButton

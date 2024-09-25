@@ -1,0 +1,394 @@
+﻿'*******************************************************************************
+'** Created by Peter Horsbøll Møller, Precisely
+'** Program:
+'** Modul:
+'**
+'*******************************************************************************
+
+'-------------------------------------
+Include "MapBasic.def"
+Include "Enums.def"
+Include "Icons.def"
+Include "Menu.def"
+Include "RibbonControls.def"
+
+'**default constants...
+Include "Library\Defaults.def"
+'Include "Library\MI_ICONS_X64.def"
+'Include "Library\RibbonElements.def"
+
+Define xProgram 		"OpenRasterWithStyleOverride"
+Define xProgramName		"Open Raster With Style Override"
+Define xProgramMenu		"OpenRasterWithStyleOverride"
+Define xVersion 		"1.0.2"
+Define xYear			"2024"
+Define xAddToMenuBar	FALSE
+
+Define FILE_INI			xProgram & ".ini"
+Define FILE_STR			ApplicationDirectory$() & xProgram & ".str"
+Define FILE_DBG			ApplicationDirectory$() & xProgram & ".dbg"
+Define FILE_HLP			ApplicationDirectory$() & xProgram & ".pdf"
+'Define FILE_DLL			ApplicationDirectory$() & xProgram & ".dll"
+Define PATH_IMAGES			ApplicationDirectory$()
+
+Define NUM_TABS			3
+
+'-------------------------------------
+Include "Library\DEBUGLib.def"
+Include "Library\CONFIGFILELib.def"
+Include "Library\ERRORLib.def"
+Include "Library\FILELib.def"
+Include "Library\LAYERLib.def"
+Include "Library\MAPPERLib.def"
+Include "Library\ProgramInfo.def"
+Include "Library\RESSTRNGLib.def"
+Include "Library\RIBBONLib.def"
+Include "Library\TABLELib.def"
+Include "Library\Types\T_LAYER_SETTINGS.def"
+
+'-----------------------------------------------------------------------------------------
+Declare Sub Main
+Declare Sub MENUBuildRibbonInterface
+Declare Sub EndProgram
+Declare Sub EndHandler
+Declare Sub MENUReadConfigFile
+Declare Sub MENUWriteConfigFile(ByVal sFile As String)
+Declare Sub MENUOpenRasterWithLayerSettings
+Declare Sub MENUReadRasterLayerSettings
+
+Dim	marrRibbonTabNames(NUM_TABS), marrRibbonGroupNames(NUM_TABS), marrAddAfterControl(NUM_TABS) As String,
+	marrAddToRibbon(NUM_TABS), mbAddReadLayerSetting As Logical,
+	marrAddAtPosition(NUM_TABS) As Integer,
+	msDefaultFolder, msPreviousFolder As String,
+	msCmdCaption, msCmdHelpText, msReadLayerSettingCaption, msReadLayerSettingHelpText, msDlgTitle As String,
+	mlyrRaster As T_LAYER_SETTINGS
+'**********************************************************************************************''
+'**   Created by Peter Horsbøll Møller, Precisely
+'
+'**********************************************************************************************''
+Sub Main
+
+Dim i As Integer
+
+OnError GoTo ErrorOccured
+
+	'***Initializing ApplicationInfo
+	Call PRGISetApplicationName(xProgramName)
+	Call PRGISetApplicationVersion(xVersion)
+	Call PRGISetApplicationCopyrightYear(xYear)
+	Call PRGISetApplicationDevelopedBy("Peter Horsbøll Møller")
+	Call PRGISetDescription("This tool adds buttons to defined ribbon tabs allowing the user to select and open raster files with a predefined layer style override.")
+	Call PRGISetApplicationImageUri(PATH_IMAGES & "Raster_32.png")
+	Call PRGISetApplicationHelpFile(FILE_HLP)
+
+	'***Enabling Debug if file exists
+	Call DEBUGEnableByFile(FILE_DBG)
+
+	i = i + 1
+	marrRibbonTabNames(i)	= TAB_HOME
+	marrRibbonGroupNames(i)	= TAB_HOME_FILE_GRP
+'	marrAddAfterControl(i)	= BTN_OPEN_TABLE
+	i = i + 1
+	marrRibbonTabNames(i)	= TAB_TABLE
+	marrRibbonGroupNames(i)	= TAB_TABLE_DATA_GRP
+'	marrAddAfterControl(i)	= BTN_TABLE_FILE_OPEN_SPLIT
+	i = i + 1
+	marrRibbonTabNames(i)	= TAB_MAP
+	marrRibbonGroupNames(i)	= TAB_MAP_FILE_GRP
+'	marrAddAfterControl(i)	= BTN_MAP_FILE_OPEN_SPLIT
+
+	Call MENUReadConfigFile
+
+	If not RESSTRNGLoadStrings(FILE_STR) Then
+		Call ERRCreate(0, "", "Main: Resource File not read correctly. Using hardcoded string!")
+		Call ERRPrint()
+		msCmdCaption				= "Open Raster"
+		msCmdHelpText				= "Select one or more Raster Files to open with Layer Override settings"
+		msDlgTitle				= "Select Raster Files to Open with Layer Override"
+		msReadLayerSettingCaption	= "Read Raster Layer Settings"
+		msReadLayerSettingHelpText	= "Read Raster Layer Settings and write these to locale config file"
+	Else
+		msCmdCaption				= RESSTRNGGetString(1)
+		msCmdHelpText				= RESSTRNGGetString(2)
+		msDlgTitle				= RESSTRNGGetString(3)
+		msReadLayerSettingCaption	= RESSTRNGGetString(4)
+		msReadLayerSettingHelpText	= RESSTRNGGetString(5)
+	End If
+
+	Call MENUBuildRibbonInterface
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Main")
+	Call ERRShow()
+
+End Sub
+
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUBuildRibbonInterface
+
+Dim	nTab, nCtrlIdx, nPosition As Integer,
+	sTabName, sGroupName, sAddAfter As String
+
+OnError GoTo ErrorOccured
+
+	For nTab = 1 To Ubound(marrRibbonTabNames)
+		sTabName		= marrRibbonTabNames(nTab)
+		sGroupName	= marrRibbonGroupNames(nTab)
+		nCtrlIdx 		= 0
+
+		If marrAddAfterControl(nTab) = "" Then
+			nPosition	= marrAddAtPosition(nTab)
+			If nPosition = -1 Then
+'				Call DEBUGPrint(sTabName & ": Add to end")
+				nCtrlIdx	= RBNGroupAddControl("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName)
+			Else
+				Call DEBUGPrint(sTabName & ": Insert at Postion " & nPosition)
+				nCtrlIdx	= RBNGroupInsertControl("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName, nPosition)
+			End If
+		Else
+			sAddAfter	= marrAddAfterControl(nTab)
+'			Call DEBUGPrint(sTabName & ": Insert after " & sAddAfter)
+			nCtrlIdx	= RBNGroupInsertControlAfter("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName, sAddAfter)
+		End If
+
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), msCmdHelpText, "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, PATH_IMAGES & "Raster_32.png", PATH_IMAGES & "Raster_32.png")
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOpenRasterWithLayerSettings")
+		End If
+	Next
+
+	If mbAddReadLayerSetting Then
+		nCtrlIdx = RBNCntxtMenuAddMenuItem(MenuId_LcLayersShortcut, "cmdReadRasterLayerSetting", msReadLayerSettingCaption, "")
+		If nCtrlIdx > 0 Then
+			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), msReadLayerSettingHelpText, "")
+			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_SMALL, PATH_IMAGES & "LayerSetting_16.png", PATH_IMAGES & "LayerSetting_16.png")
+			Call RBNControlSetLeftMarginIdx(nCtrlIdx, 0)
+			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUReadRasterLayerSettings")
+		End If
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUBuildRibbonInterface")
+	Call ERRShow()
+
+End Sub
+
+'****************************************
+'**   Created by Peter Horsbøll Møller, Precisely
+'**   Ending MapBasic application
+'****************************************
+Sub EndProgram
+
+OnError GoTo ErrorOccured
+
+	End Program
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "EndProgram")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub EndHandler
+
+OnError GoTo ErrorOccured
+
+	Call RBNEndHandler
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "EndHandler")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUReadConfigFile
+
+Dim	nTab As Integer,
+	sIniFile, sValue As String
+
+OnError GoTo ErrorOccured
+
+	If FileExists(GetFolderPath$(FOLDER_MI_PREFERENCE) & FILE_INI) Then
+		sIniFile = GetFolderPath$(FOLDER_MI_PREFERENCE) & FILE_INI
+	Else
+		sIniFile = ApplicationDirectory$() & FILE_INI
+	End If
+
+	For nTab = 1 To Ubound(marrRibbonTabNames)
+		sValue					= CONFIGReadKey(sIniFile, "RIBBON", "ADDTO_" & marrRibbonTabNames(nTab))
+		marrAddToRibbon(nTab)		= IIf(sValue = "0", FALSE, TRUE)
+
+		sValue					= CONFIGReadKey(sIniFile, "RIBBON", "ADDATPOSITION_" & marrRibbonTabNames(nTab))
+		marrAddAtPosition(nTab)		= IIf(sValue = "", 0, Val(sValue))
+
+		sValue					= CONFIGReadKey(sIniFile, "RIBBON", "ADDAFTERCONTROL_" & marrRibbonTabNames(nTab))
+		marrAddAfterControl(nTab)	= sValue
+	Next
+
+	sValue				= CONFIGReadKey(sIniFile, "RIBBON", "ADDREADLAYERSETTING")
+	mbAddReadLayerSetting	= IIf(sValue = "1", TRUE, FALSE)
+
+	msDefaultFolder	= CONFIGReadKey(sIniFile, "DATA", "FOLDER")
+
+	sValue			= CONFIGReadKey(sIniFile, "LAYER", "LAYERSETTINGS")
+	If NOT tlsFromString( mlyrRaster, sValue) Then
+		Call ERRCreate(0, "", "MENUReadConfigFile: Layer Setting not converted correctly: " & sValue)
+		Call ERRPrint()
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUReadConfigFile")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUWriteConfigFile(ByVal sFile As String)
+
+Dim	nTab As Integer
+
+OnError GoTo ErrorOccured
+
+	For nTab = 1 To Ubound(marrRibbonTabNames)
+		Call CONFIGWriteKey(sFile, "RIBBON", "ADDTO_" & marrRibbonTabNames(nTab), IIf(marrAddToRibbon(nTab), "1", "0"))
+		Call CONFIGWriteKey(sFile, "RIBBON", "ADDATPOSITION_" & marrRibbonTabNames(nTab), Str$(marrAddAtPosition(nTab)))
+		Call CONFIGWriteKey(sFile, "RIBBON", "ADDAFTERCONTROL_" & marrRibbonTabNames(nTab), marrAddAfterControl(nTab))
+	Next
+
+	Call CONFIGWriteKey(sFile, "RIBBON", "ADDREADLAYERSETTING", IIf(mbAddReadLayerSetting, "1", "0"))
+
+	Call CONFIGWriteKey(sFile, "DATA", "FOLDER", msDefaultFolder)
+
+	Call CONFIGWriteKey(sFile, "LAYER", "LAYERSETTINGS", tlsToString(mlyrRaster))
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUWriteConfigFile")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUOpenRasterWithLayerSettings
+
+Dim	nNumFiles, nFile, nMID, nLayerID As Integer,
+	sFile, sTab, sCmd As String
+
+OnError GoTo ErrorOccured
+
+	msPreviousFolder = IIf(msPreviousFolder = "", msDefaultFolder, msPreviousFolder)
+	nNumFiles = FILEOpenFilesDlg(msDlgTitle, msPreviousFolder, "MapInfo Table Files (*.tab)|*.tab")
+	If nNumFiles = 0 Then
+		Exit Sub
+	End If
+
+	nMID = MAPFrontMostWindow()
+
+	For nFile = 1 To nNumFiles
+		Call DEBUGPrint("Opening Table: " & FormatNumber$(nFile) & " of " & FormatNumber$(nNumFiles) & ": " & sFile)
+		msPreviousFolder	= PathToDirectory$(sFile)
+		sFile 			= FILEGetOpenFilesDlgFileName(nFile)
+
+		Open Table sFile Interactive
+		sTab	= TABGetNameFromTabFile(sFile)
+
+		If nMID = 0 Then
+			Map From sTab
+			nMID	= MAPFrontMostWindow()
+		Else
+			Add Map
+				Window nMID
+				Layer sTab
+		End If
+		nLayerID	= LAYERGetLayerNumber(nMID, sTab)
+
+		sCmd = tlsGetSetMapStatement(nMID, nLayerID, mlyrRaster)
+		sCmd	= "Set Map Window " & nMID & " Layer " & nLayerID & " " & sCmd
+		Call DEBUGPrint(sCmd)
+		Run Command sCmd
+	Next
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUOpenRasterWithLayerSettings: " & sCmd)
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub MENUReadRasterLayerSettings
+
+Dim	nMID, nLayerID As Integer
+
+OnError GoTo ErrorOccured
+
+	If LayerControlInfo(LC_INFO_SEL_COUNT) = 0 Then
+		Note "Please select a raster layer in the Layer List!"
+		Exit Sub
+	ElseIf LayerControlInfo(LC_INFO_SEL_COUNT) > 1 Then
+		Note "Please select only one raster layer in the Layer List!"
+		Exit Sub
+	End If
+
+	nMID		= LayerControlSelectionInfo (1, LC_SEL_INFO_MAPWIN_ID)
+	nLayerID	= LayerControlSelectionInfo (1, LC_SEL_INFO_LAYER_ID)
+
+	If nLayerID = -1 Then
+		Note "Please select a raster layer in the Layer List!"
+		Exit Sub
+	End If
+	If Not LayerInfo(nMID, nLayerID, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_IMAGE Then
+		Note "Please select a raster layer in the Layer List!"
+		Exit Sub
+	End If
+
+	Call tlsGetInfo(nMID, nLayerID, mlyrRaster)
+	Call MENUWriteConfigFile(ApplicationDirectory$() & FILE_INI)
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "MENUReadRasterLayerSettings")
+	Call ERRShow()
+
+End Sub
+
+

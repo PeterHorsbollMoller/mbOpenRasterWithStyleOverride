@@ -1,0 +1,6 @@
+﻿[STRINGS]
+1="Open Raster"
+2="Select one or more Raster Files to open with Layer Override settings"
+3="Select Raster Files to Open with Layer Override"
+4="Read Raster Layer Settings"
+5="Read Raster Layer Settings and write these to locale config file"
