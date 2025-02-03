@@ -4,6 +4,8 @@
 '** Modul:
 '**
 '*******************************************************************************
+'	31-01-2025 10:47:36		v1.0.3	- Fixed issue: AddTo value from Config File was not used to control if button should be added to specific tabs.
+'*******************************************************************************
 
 '-------------------------------------
 Include "MapBasic.def"
@@ -20,7 +22,7 @@ Include "Library\Defaults.def"
 Define xProgram 		"OpenRasterWithStyleOverride"
 Define xProgramName		"Open Raster With Style Override"
 Define xProgramMenu		"OpenRasterWithStyleOverride"
-Define xVersion 		"1.0.2"
+Define xVersion 		"1.0.3"
 Define xYear			"2024"
 Define xAddToMenuBar	FALSE
 
@@ -140,28 +142,32 @@ OnError GoTo ErrorOccured
 
 	For nTab = 1 To Ubound(marrRibbonTabNames)
 		sTabName		= marrRibbonTabNames(nTab)
-		sGroupName	= marrRibbonGroupNames(nTab)
-		nCtrlIdx 		= 0
+		If marrAddToRibbon(nTab)	Then
+			sGroupName	= marrRibbonGroupNames(nTab)
+			nCtrlIdx 		= 0
 
-		If marrAddAfterControl(nTab) = "" Then
-			nPosition	= marrAddAtPosition(nTab)
-			If nPosition = -1 Then
-'				Call DEBUGPrint(sTabName & ": Add to end")
-				nCtrlIdx	= RBNGroupAddControl("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName)
+			If marrAddAfterControl(nTab) = "" Then
+				nPosition	= marrAddAtPosition(nTab)
+				If nPosition = -1 Then
+	'				Call DEBUGPrint(sTabName & ": Add to end")
+					nCtrlIdx	= RBNGroupAddControl("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName)
+				Else
+					Call DEBUGPrint(sTabName & ": Insert at Postion " & nPosition)
+					nCtrlIdx	= RBNGroupInsertControl("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName, nPosition)
+				End If
 			Else
-				Call DEBUGPrint(sTabName & ": Insert at Postion " & nPosition)
-				nCtrlIdx	= RBNGroupInsertControl("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName, nPosition)
+				sAddAfter	= marrAddAfterControl(nTab)
+	'			Call DEBUGPrint(sTabName & ": Insert after " & sAddAfter)
+				nCtrlIdx	= RBNGroupInsertControlAfter("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName, sAddAfter)
+			End If
+
+			If nCtrlIdx > 0 Then
+				Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), msCmdHelpText, "")
+				Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, PATH_IMAGES & "Raster_32.png", PATH_IMAGES & "Raster_32.png")
+				Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOpenRasterWithLayerSettings")
 			End If
 		Else
-			sAddAfter	= marrAddAfterControl(nTab)
-'			Call DEBUGPrint(sTabName & ": Insert after " & sAddAfter)
-			nCtrlIdx	= RBNGroupInsertControlAfter("cmdOpenRaster" & sTabName, msCmdCaption, "", ControlType_Button, sTabName, sGroupName, sAddAfter)
-		End If
-
-		If nCtrlIdx > 0 Then
-			Call RBNControlSetToolTipIdx(nCtrlIdx, PRGIGetApplicationName(), msCmdHelpText, "")
-			Call RBNControlSetIconsIdx(nCtrlIdx, CONTROL_SIZE_LARGE, PATH_IMAGES & "Raster_32.png", PATH_IMAGES & "Raster_32.png")
-			Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "MENUOpenRasterWithLayerSettings")
+			Call DEBUGPrint(sTabName & ": Not adding the button to " & sTabName)
 		End If
 	Next
 
